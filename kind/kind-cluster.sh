@@ -1,8 +1,10 @@
 #!/bin/bash
 
-set -e  
-  cluster_name="master"
+set -e
+  read -p "Enter your Kind cluster name" cluster_name
+  echo $cluster_name
   config_file="config.yml"
+
 set -o pipefail
 
 echo " installing docker, Kind, & kubectl..."
@@ -85,4 +87,5 @@ echo "checking cluster nodes"
 
 kubeclt get nodes
 
-echo "EveryThing working find "
+echo "Ready to deploy Application "
+
