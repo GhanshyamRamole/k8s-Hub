@@ -1,6 +1,8 @@
 #!/bin/bash
 
 set -e  
+  cluster_name="master"
+  config_file="config.yml"
 set -o pipefail
 
 echo " installing docker, Kind, & kubectl..."
@@ -75,10 +77,12 @@ echo "🎉 Docker, Kind, and kubectl installation complete!"
 
 echo ""
 echo "creating cluster using kubectl"
-kubectl apply -f config.yml
+
+kind create cluster --config $config_file --name $cluster_name
 
 echo "kind cluster create successfully"
 echo "checking cluster nodes"
-kubectl get nodes
+
+kubeclt get nodes
 
 echo "EveryThing working find "
