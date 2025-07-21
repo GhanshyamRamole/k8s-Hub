@@ -1,7 +1,8 @@
 #!/bin/bash
 
 set -e
-  read -p "Enter your Kind cluster name" cluster_name
+  echo ""
+  read -p "Enter your Kind cluster name:" cluster_name
   echo $cluster_name
   config_file="config.yml"
 
@@ -18,7 +19,8 @@ if ! command -v docker &>/dev/null; then
   sudo apt-get install -y docker.io
 
   echo "👤 Adding current user to docker group..."
-  sudo usermod -aG docker "$USER"
+  sudo usermod -aG docker "$USER" 
+  sudo newgrp docker   
 
   echo "✅ Docker installed and user added to docker group."
 else
@@ -85,7 +87,7 @@ kind create cluster --config $config_file --name $cluster_name
 echo "kind cluster create successfully"
 echo "checking cluster nodes"
 
-kubeclt get nodes
+kubectl get nodes
 
 echo "Ready to deploy Application "
 
