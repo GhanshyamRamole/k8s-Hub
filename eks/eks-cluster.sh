@@ -16,6 +16,19 @@ if ! command -v eksctl &> /dev/null; then
     sudo mv /tmp/eksctl /usr/local/bin
 fi
 
+# Check if eksctl is installed
+if ! command -v kubectl &> /dev/null; then
+    echo "Installing kubectl..."
+    #!/bin/bash
+sudo apt update
+sudo apt install curl -y
+sudo curl -LO "https://dl.k8s.io/release/v1.28.4/bin/linux/amd64/kubectl"
+sudo chmod +x kubectl
+sudo mv kubectl /usr/local/bin/
+kubectl version --client
+
+fi
+
 # Create EKS cluster
 echo "Creating EKS cluster (wait for 15-20 minutes)..."
 eksctl create cluster \
