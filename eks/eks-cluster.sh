@@ -9,7 +9,7 @@ read -p "Enter node-group name: " NODE_GROUP_NAME
 
 echo "Setting up EKS cluster: $CLUSTER_NAME in $REGION"
 
-# Check if eksctl is installed
+# Check if kubectl is installed
 if ! command -v eksctl &> /dev/null; then
     echo "Installing eksctl..."
     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
@@ -26,7 +26,6 @@ sudo curl -LO "https://dl.k8s.io/release/v1.28.4/bin/linux/amd64/kubectl"
 sudo chmod +x kubectl
 sudo mv kubectl /usr/local/bin/
 kubectl version --client
-
 fi
 
 # Create EKS cluster
