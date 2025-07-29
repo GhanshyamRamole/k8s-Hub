@@ -3,9 +3,9 @@
 
 set -e
 
-CLUSTER_NAME="my-cluster-name"
-REGION="us-east-1"
-NODE_GROUP_NAME="my-nodes-name"
+read -p "Enter your cluster name: " CLUSTER_NAME
+read -p "Enter your region: " REGION
+read -p "Enter node-group name: " NODE_GROUP_NAME
 
 echo "Setting up EKS cluster: $CLUSTER_NAME in $REGION"
 
