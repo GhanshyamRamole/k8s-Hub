@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "🔧 Enabling useful MicroK8s addons..."
 sudo microk8s enable dns storage ingress dashboard metallb:192.168.1.240-192.168.1.250
 
