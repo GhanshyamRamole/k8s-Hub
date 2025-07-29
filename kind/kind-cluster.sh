@@ -82,6 +82,16 @@ echo "🎉 Docker, Kind, and kubectl installation complete!"
 echo ""
 echo "creating cluster using kubectl"
 
+echo "kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.33.1
+  - role: worker
+    image: kindest/node:v1.33.1
+  - role: worker
+    image: kindest/node:v1.33.1" > config.yml
+
 kind create cluster --config $config_file --name $cluster_name
 
 echo "kind cluster create successfully"
