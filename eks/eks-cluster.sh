@@ -9,7 +9,7 @@ read -p "Enter node-group name: " NODE_GROUP_NAME
 
 echo "Setting up EKS cluster: $CLUSTER_NAME in $REGION"
 
-check_and_install_aws_cli() {
+echo "setting aws-cli"
   if ! command -v aws &> /dev/null; then
     echo "❌ AWS CLI not found. Installing..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -28,9 +28,7 @@ check_and_install_aws_cli() {
   else
     echo "✅ AWS CLI is already installed."
   fi
-}
 
-configure_aws_cli() {
   echo "Checking AWS CLI configuration..."
   if ! aws sts get-caller-identity &>/dev/null; then
     echo "🔧 AWS CLI is not configured. Launching interactive setup..."
@@ -38,9 +36,6 @@ configure_aws_cli() {
   else
     echo "✅ AWS CLI is already configured."
   fi
-}
-
-
 
 # Check if kubectl is installed
 if ! command -v eksctl &> /dev/null; then
