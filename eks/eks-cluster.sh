@@ -9,6 +9,37 @@ read -p "Enter node-group name: " NODE_GROUP_NAME
 
 echo "Setting up EKS cluster: $CLUSTER_NAME in $REGION"
 
+check_and_install_aws_cli() {
+  if ! command -v aws &> /dev/null; then
+    echo "❌ AWS CLI not found. Installing..."
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      unzip awscliv2.zip
+      sudo ./aws/install
+      rm -rf aws awscliv2.zip
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install awscli
+    else
+      echo "Unsupported OS. Please install AWS CLI manually."
+      exit 1
+    fi
+  else
+    echo "✅ AWS CLI is already installed."
+  fi
+}
+
+configure_aws_cli() {
+  echo "Checking AWS CLI configuration..."
+  if ! aws sts get-caller-identity &>/dev/null; then
+    echo "🔧 AWS CLI is not configured. Launching interactive setup..."
+    aws configure
+  else
+    echo "✅ AWS CLI is already configured."
+  fi
+}
+
+
+
 # Check if kubectl is installed
 if ! command -v eksctl &> /dev/null; then
     echo "Installing eksctl..."
