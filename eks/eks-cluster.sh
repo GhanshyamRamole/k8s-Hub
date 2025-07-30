@@ -13,10 +13,12 @@ check_and_install_aws_cli() {
   if ! command -v aws &> /dev/null; then
     echo "❌ AWS CLI not found. Installing..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      # Installing AWS CLI
+      #!/bin/bash
       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      sudo apt install unzip -y
       unzip awscliv2.zip
       sudo ./aws/install
-      rm -rf aws awscliv2.zip
     elif [[ "$OSTYPE" == "darwin"* ]]; then
       brew install awscli
     else
