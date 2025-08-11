@@ -14,9 +14,9 @@ Designed for **DevOps engineers**, **students**, and **Kubernetes enthusiasts**,
 ## 🗂 Scripts Included
 | Script | Purpose | Run On |
 |--------|---------|--------|
-| `setup_k8s_node.sh` | Installs dependencies, configures container runtime, and sets up Kubernetes components. | Master & Worker nodes |
-| `setup_k8s_master.sh` | Initializes the Kubernetes cluster and installs Calico CNI. | Master node only |
-| `join_k8s_worker.sh` | Joins a worker node to the cluster using the master’s join command. | Worker nodes only |
+| `kubeadm_common.sh` | Installs dependencies, configures container runtime, and sets up Kubernetes components. | Master & Worker nodes |
+| `master_node.sh` | Initializes the Kubernetes cluster and installs Calico CNI. | Master node only |
+| `worker_node.sh` | Joins a worker node to the cluster using the master’s join command. | Worker nodes only |
 
 ---
 
@@ -34,16 +34,16 @@ Designed for **DevOps engineers**, **students**, and **Kubernetes enthusiasts**,
 ### **1️⃣ Prepare All Nodes (Master & Worker)**
 Run on **every node** in the cluster:
 ```bash
-chmod +x setup_k8s_node.sh
-sudo ./setup_k8s_node.sh
+chmod +x kubeadm_common.sh
+sudo ./kubeadm_common.sh
 ```
 
 ### **2️⃣ Initialize the Master Node
 Run only on the master:
 
 ```bash
-chmod +x setup_k8s_master.sh
-sudo ./setup_k8s_master.sh
+chmod +x master_node.sh
+sudo ./master_node.sh
 ```
 
 This will:
@@ -54,7 +54,7 @@ Configure kubectl for the current user
 
 Print the join command for worker nodes
 
-### ** 3️⃣ Join Worker Nodes
+### **3️⃣ Join Worker Nodes
 On each worker node:
 
 Copy the join command displayed by the master.
@@ -62,10 +62,11 @@ Copy the join command displayed by the master.
 Run:
 
 ```bash
-chmod +x join_k8s_worker.sh
-sudo ./join_k8s_worker.sh
+chmod +x worker_node.sh
+sudo ./worker_node.sh
 ```
-🔍 Verifying the Cluster
+
+### 🔍 Verifying the Cluster
 On the master node:
 
 ```bash
@@ -80,7 +81,7 @@ worker-1     Ready    <none>          2m    v1.29.x
 worker-2     Ready    <none>          2m    v1.29.x
 ```
 
-🛠 Troubleshooting
+### 🛠 Troubleshooting
 Pods stuck in Pending state?
 Check Calico installation:
 
@@ -102,8 +103,8 @@ Restart containerd:
 sudo systemctl restart containerd
 ```
 
-📄 License
+### 📄 License
 MIT License – 
 
-👨‍💻 Author
+### 👨‍💻 Author
 Ghanshyam Ramole – DevOps Engineer & Cloud Enthusiast
