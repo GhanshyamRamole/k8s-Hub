@@ -1,111 +1,79 @@
 #!/bin/bash
-# Kubernetes Master Node Setup Script (Error-Free & Idempotent)
-# Author: Ghanshyam Ramole (Modified by ChatGPT)
-# Last Updated: 2025-08-11
+# =============================================================
+# Kubernetes Master Node Setup Script (Ubuntu 20.04/22.04)
+# Author: Ghanshyam Ramole
+# =============================================================
+# USAGE:
+#   1. Save this script:  setup_k8s_master.sh
+#   2. Make it executable: chmod +x setup_k8s_master.sh
+#   3. Run as root or with sudo: sudo ./setup_k8s_master.sh
+#
+# AFTER RUNNING:
+#   - Share the "kubeadm join ..." command with your worker nodes.
+#   - Deploy workloads using kubectl.
+# =============================================================
 
-set -euo pipefail
-LOG_FILE="/var/log/k8s_master_setup.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
+# =========[ COLORS FOR OUTPUT ]=========
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-POD_CIDR="10.244.0.0/16"  # Change if using a different CNI
-JOIN_CMD_FILE="/root/k8s_join_command.sh"
-
-echo "========================================================="
-echo "🚀 Kubernetes Master Node Setup Script Started"
-echo "========================================================="
-
-# --- Function to check root privileges ---
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        echo "❌ This script must be run as root or with sudo privileges."
-        exit 1
-    fi
+# =========[ HELPER FUNCTIONS ]=========
+function step() {
+    echo -e "\n${BLUE}>>> Step $1:${NC} $2${NC}"
 }
 
-# --- Function to check kubeadm availability ---
-check_kubeadm() {
-    if ! command -v kubeadm &>/dev/null; then
-        echo "❌ kubeadm is not installed. Please run the prerequisites script first."
-        exit 1
-    fi
+function success() {
+    echo -e "${GREEN}✔ SUCCESS:${NC} $1"
 }
 
-# --- Function to clean old Kubernetes state ---
-cleanup_old_cluster() {
-    echo "🧹 Cleaning up any previous Kubernetes setup..."
-    kubeadm reset -f || true
-    rm -rf /etc/cni/net.d \
-           $HOME/.kube \
-           /var/lib/cni \
-           /var/lib/kubelet \
-           /var/lib/etcd \
-           /etc/kubernetes || true
-
-    systemctl stop kubelet || true
-    systemctl stop containerd || true
-
-    pkill -9 kube-apiserver || true
-    pkill -9 etcd || true
-    pkill -9 kube-controller || true
-    pkill -9 kube-scheduler || true
-
-    systemctl start containerd
-    systemctl enable containerd
+function warn() {
+    echo -e "${YELLOW}⚠ WARNING:${NC} $1"
 }
 
-# --- Function to check and free ports ---
-check_ports() {
-    echo "🔍 Checking Kubernetes required ports..."
-    local ports=(6443 10259 10257 10250 2380)
-    for port in "${ports[@]}"; do
-        if lsof -i :$port &>/dev/null; then
-            echo "⚠️ Port $port is in use. Killing process..."
-            lsof -ti :$port | xargs -r kill -9
-        fi
-    done
+function error_exit() {
+    echo -e "${RED}✘ ERROR:${NC} $1"
+    exit 1
 }
 
-# --- Function to initialize Kubernetes master ---
-init_cluster() {
-    echo "🚀 Initializing Kubernetes Cluster with CIDR: $POD_CIDR..."
-    kubeadm init --pod-network-cidr="$POD_CIDR" --upload-certs
-}
+# =========[ SCRIPT START ]=========
+echo -e "${GREEN}============================================="
+echo -e " Kubernetes Master Node Setup Script"
+echo -e " Author: Ghanshyam Ramole"
+echo -e "=============================================${NC}"
 
-# --- Function to setup kubeconfig ---
-setup_kubeconfig() {
-    echo "📂 Setting up kubeconfig for current user..."
-    mkdir -p "$HOME/.kube"
-    cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config"
-    chown "$(id -u):$(id -g)" "$HOME/.kube/config"
-}
+# 1. Initialize the Cluster
+step 1 "Initializing Kubernetes Cluster..."
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16 || error_exit "Cluster initialization failed."
+success "Kubernetes cluster initialized."
 
-# --- Function to install Calico ---
-install_calico() {
-    echo "🌐 Installing Calico CNI..."
-    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.0/manifests/calico.yaml
-}
+# 2. Set Up Local kubeconfig
+step 2 "Configuring kubectl for the current user..."
+mkdir -p "$HOME/.kube" || error_exit "Failed to create kube config directory."
+sudo cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config" || error_exit "Failed to copy admin.conf."
+sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config" || error_exit "Failed to change kube config permissions."
+success "kubectl configured for the current user."
 
-# --- Function to generate join command ---
-generate_join_command() {
-    echo "🔑 Generating join command for worker nodes..."
-    kubeadm token create --print-join-command | tee "$JOIN_CMD_FILE"
-    chmod +x "$JOIN_CMD_FILE"
-    echo "✅ Join command saved to: $JOIN_CMD_FILE"
-}
+# 3. Install Calico CNI
+step 3 "Installing Calico network plugin..."
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.0/manifests/calico.yaml || error_exit "Failed to install Calico."
+success "Calico network plugin installed."
 
-# --- MAIN EXECUTION ---
-check_root
-check_kubeadm
-cleanup_old_cluster
-check_ports
-init_cluster
-setup_kubeconfig
-install_calico
-generate_join_command
+# 4. Generate Join Command
+step 4 "Generating join command for worker nodes..."
+JOIN_CMD=$(kubeadm token create --print-join-command) || error_exit "Failed to generate join command."
+success "Join command generated."
 
-echo "========================================================="
-echo "✅ Kubernetes Master Node setup complete!"
-echo "📜 Log file: $LOG_FILE"
-echo "💡 To join workers: run the command in $JOIN_CMD_FILE"
-echo "========================================================="
+# Display join command clearly
+echo -e "\n${YELLOW}Share this command with your worker nodes:${NC}"
+echo -e "${BLUE}$JOIN_CMD${NC}"
+
+# =========[ FINISH MESSAGE ]=========
+echo -e "\n${GREEN}✅ Kubernetes Master Node setup completed successfully!${NC}"
+echo -e "${YELLOW}Next steps:${NC}"
+echo -e " - Run the above join command on each worker node."
+echo -e " - Verify nodes using: ${BLUE}kubectl get nodes${NC}"
+echo -e "${GREEN}Cluster is ready! 🚀${NC}"
 

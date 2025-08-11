@@ -1,121 +1,119 @@
 #!/bin/bash
-# Kubernetes Installation Script (Advanced)
-# Works for Ubuntu 20.04+ on both Master & Worker Nodes
-# Author: Ghanshyam Ramole (Modified by ChatGPT)
-# Last Updated: 2025-08-11
+# =============================================================
+# Kubernetes Node Setup Script (Ubuntu 20.04/22.04)
+# Author: Ghanshyam Ramole
+# Works for both Master & Worker nodes
+# =============================================================
+# USAGE:
+#   1. Save this script:  setup_k8s_node.sh
+#   2. Make it executable: chmod +x setup_k8s_node.sh
+#   3. Run as root or with sudo: sudo ./setup_k8s_node.sh
+#
+# AFTER RUNNING:
+#   - On Master: Run `kubeadm init ...` to initialize the cluster
+#   - On Worker: Run the `kubeadm join ...` command provided by Master
+# =============================================================
 
-set -euo pipefail
-LOG_FILE="/var/log/k8s_install.log"
-exec > >(tee -a $LOG_FILE) 2>&1
+# =========[ COLORS FOR OUTPUT ]=========
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-echo "========================================================="
-echo "🚀 Kubernetes Prerequisites & Installation Script Started"
-echo "========================================================="
-sleep 1
-
-# --- Functions ---
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        echo "❌ This script must be run as root or with sudo privileges."
-        exit 1
-    fi
+# =========[ HELPER FUNCTIONS ]=========
+function step() {
+    echo -e "\n${BLUE}>>> Step $1:${NC} $2${NC}"
 }
 
-check_os() {
-    if ! grep -q "Ubuntu" /etc/os-release; then
-        echo "❌ This script only supports Ubuntu."
-        exit 1
-    fi
+function success() {
+    echo -e "${GREEN}✔ SUCCESS:${NC} $1"
 }
 
-run_cmd() {
-    "$@"
-    if [[ $? -ne 0 ]]; then
-        echo "❌ Command failed: $*"
-        exit 1
-    fi
+function warn() {
+    echo -e "${YELLOW}⚠ WARNING:${NC} $1"
 }
 
-# --- Step 0: Basic Checks ---
-check_root
-check_os
-echo "✅ Running as root on Ubuntu."
+function error_exit() {
+    echo -e "${RED}✘ ERROR:${NC} $1"
+    exit 1
+}
 
-# --- Step 1: Disable Swap ---
-echo "[1/7] Disabling swap..."
-swapoff -a
-sed -i '/ swap / s/^/#/' /etc/fstab
+# =========[ SCRIPT START ]=========
+echo -e "${GREEN}============================================="
+echo -e " Kubernetes Node Setup Script"
+echo -e " Author: Ghanshyam Ramole"
+echo -e "=============================================${NC}"
 
-# --- Step 2: Load Kernel Modules ---
-echo "[2/7] Loading necessary kernel modules..."
-cat <<EOF | tee /etc/modules-load.d/k8s.conf
+# 1. Disable Swap
+step 1 "Disabling swap (Required for Kubernetes)..."
+sudo swapoff -a || error_exit "Failed to disable swap."
+success "Swap disabled."
+
+# 2. Load Kernel Modules
+step 2 "Loading necessary kernel modules for Kubernetes networking..."
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf >/dev/null
 overlay
 br_netfilter
 EOF
-modprobe overlay
-modprobe br_netfilter
+sudo modprobe overlay && sudo modprobe br_netfilter || error_exit "Failed to load kernel modules."
+success "Kernel modules loaded."
 
-# --- Step 3: Set Sysctl Parameters ---
-echo "[3/7] Configuring sysctl parameters..."
-cat <<EOF | tee /etc/sysctl.d/k8s.conf
+# 3. Set Sysctl Parameters
+step 3 "Applying sysctl settings for Kubernetes networking..."
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf >/dev/null
 net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward                 = 1
 EOF
-sysctl --system
+sudo sysctl --system || error_exit "Failed to apply sysctl parameters."
+success "Sysctl parameters applied."
 
-# --- Step 4: Install Containerd ---
-echo "[4/7] Installing containerd..."
-apt-get update -y
-apt-get install -y ca-certificates curl gnupg lsb-release
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-chmod a+r /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-  | tee /etc/apt/sources.list.d/docker.list > /dev/null
+# 4. Install Containerd
+step 4 "Installing and configuring containerd runtime..."
+sudo apt-get update -y && \
+sudo apt-get install -y ca-certificates curl || error_exit "Failed to install prerequisites."
 
-apt-get update -y
-apt-get install -y containerd.io
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || error_exit "Failed to download Docker GPG key."
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-# Configure containerd with SystemdCgroup
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+| sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+
+sudo apt-get update -y && sudo apt-get install -y containerd.io || error_exit "Failed to install containerd."
+
 containerd config default | \
-    sed -e 's/SystemdCgroup = false/SystemdCgroup = true/' \
-        -e 's/sandbox_image = "registry.k8s.io\/pause:3.6"/sandbox_image = "registry.k8s.io\/pause:3.9"/' \
-    | tee /etc/containerd/config.toml
+sed -e 's/SystemdCgroup = false/SystemdCgroup = true/' \
+    -e 's/sandbox_image = "registry.k8s.io\/pause:3.6"/sandbox_image = "registry.k8s.io\/pause:3.9"/' \
+| sudo tee /etc/containerd/config.toml >/dev/null
 
-systemctl restart containerd
-systemctl enable containerd
-systemctl is-active containerd && echo "✅ containerd running."
+sudo systemctl restart containerd && sudo systemctl enable containerd || error_exit "Failed to start containerd."
+success "Containerd installed and configured."
 
-# --- Step 5: Install Kubernetes Components ---
-echo "[5/7] Installing Kubernetes components..."
-apt-get install -y apt-transport-https ca-certificates curl gpg
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key \
-    | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
-https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" \
-    | tee /etc/apt/sources.list.d/kubernetes.list
+# 5. Install Kubernetes Components
+step 5 "Installing Kubernetes components (kubelet, kubeadm, kubectl)..."
+sudo apt-get update -y
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg || error_exit "Failed to install prerequisites."
 
-apt-get update -y
-apt-get install -y kubelet kubeadm kubectl
-apt-mark hold kubelet kubeadm kubectl
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | \
+sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg || error_exit "Failed to download Kubernetes key."
 
-# --- Step 6: Verify Installation ---
-echo "[6/7] Verifying installations..."
-kubeadm version
-kubectl version --client
-kubelet --version
-containerd --version
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
+https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' \
+| sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
 
-# --- Step 7: Final Message ---
-echo "========================================================="
-echo "✅ Kubernetes prerequisites and components installed successfully!"
-echo "📜 Log file: $LOG_FILE"
-echo "💡 Next Steps:"
-echo "  👉 On Master Node: kubeadm init --pod-network-cidr=10.244.0.0/16"
-echo "  👉 On Worker Node: Use the join command from master init output"
-echo "========================================================="
+sudo apt-get update -y && \
+sudo apt-get install -y kubelet kubeadm kubectl || error_exit "Failed to install Kubernetes components."
+
+sudo apt-mark hold kubelet kubeadm kubectl
+success "Kubernetes components installed."
+
+# =========[ FINISH MESSAGE ]=========
+echo -e "\n${GREEN}✅ Kubernetes Node setup completed successfully!${NC}"
+echo -e "${YELLOW}Next steps:${NC}"
+echo -e " - On MASTER: Run ${BLUE}sudo kubeadm init --pod-network-cidr=10.244.0.0/16${NC}"
+echo -e " - On WORKER: Run the ${BLUE}kubeadm join ...${NC} command given by Master."
+echo -e "${GREEN}Happy Kubernetes-ing! 🚀${NC}"
 
